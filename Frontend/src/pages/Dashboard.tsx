@@ -34,22 +34,21 @@ export default function Dashboard() {
   // Notification State
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
+  // Data fetching loading state
+  const [isFetching, setIsFetching] = useState<boolean>(true);
+
   const [statusCount, setStatusCount] = useState<Record<string, number>>({});
   const [priorityCount, setPriorityCount] = useState<Record<string, number>>({});
   const [overdueCount, setOverdueCount] = useState(0);
 
- 
   // AUTH REDIRECT GUARD
- 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!user) {
       navigate("/", { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, navigate]);
 
- 
   // FETCH DATA
- 
   useEffect(() => {
     if (user) {
       fetchData();
@@ -57,6 +56,19 @@ export default function Dashboard() {
   }, [user]);
 
   const fetchData = async () => {
+    setIsFetching(true);
+
+    // Show Swal loader with cold-start notice for Render hosted backends
+    Swal.fire({
+      title: "Connecting to Server...",
+      html: "Fetching dashboard data.<br><small style='color:#6b7280;'>If the server was sleeping (Render free tier), this may take up to 30-50 seconds.</small>",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
     try {
       // Fetch tasks, projects, and notifications in parallel
       const [taskRes, projectRes, notificationRes] = await Promise.allSettled([
@@ -79,18 +91,22 @@ export default function Dashboard() {
       setNotifications(notificationData);
 
       calculateStats(taskData);
+
+      // Close loading alert
+      Swal.close();
     } catch (err) {
       Swal.fire({
         icon: "error",
         title: "Error Loading Data",
-        text: "Failed to load dashboard data. Please try again later.",
+        text: "Failed to connect to backend server. Please check your network or try again.",
+        confirmButtonColor: "#2563eb",
       });
+    } finally {
+      setIsFetching(false);
     }
   };
 
- 
   // LOGOUT HANDLER WITH SWAL
- 
   const handleLogout = () => {
     Swal.fire({
       title: "Logout Confirmation",
@@ -116,9 +132,7 @@ export default function Dashboard() {
     });
   };
 
- 
   // CALCULATIONS & STATS
- 
   const calculateStats = (tasksList: Task[]) => {
     const status: Record<string, number> = {};
     const priority: Record<string, number> = {};
@@ -150,9 +164,7 @@ export default function Dashboard() {
     return "badge badge-default";
   };
 
- 
   // ADMIN DASHBOARD VIEW
- 
   const AdminView = () => (
     <div className="dashboard-view">
       <header className="dashboard-header">
@@ -192,9 +204,7 @@ export default function Dashboard() {
     </div>
   );
 
- 
-  // PM DASHBOARD VIEW (FIXED DATES)
- 
+  // PM DASHBOARD VIEW
   const PMView = () => {
     const upcomingTasks = tasks.filter((t) => {
       if (!t.dueDate) return false;
@@ -270,9 +280,7 @@ export default function Dashboard() {
     );
   };
 
- 
   // DEV DASHBOARD VIEW
- 
   const DevView = () => {
     const sortedTasks = [...tasks].sort((a, b) => {
       const priorityOrder = {
@@ -328,26 +336,11 @@ export default function Dashboard() {
     );
   };
 
- 
-  // RENDER STATES
- 
-
-  // 1. Show spinner while verifying user session on reload
-  if (loading) {
-    return (
-      <div className="loader-container">
-        <div className="spinner"></div>
-        <p>Loading your dashboard...</p>
-      </div>
-    );
-  }
-
-  // 2. Prevent rendering before redirection occurs
+  // Prevent rendering before redirection occurs
   if (!user) {
     return null;
   }
 
-  // 3. Render Dashboard once authenticated
   return (
     <div className="dashboard-wrapper">
       {/* Top Navbar */}
@@ -393,15 +386,26 @@ export default function Dashboard() {
 
       {/* Main Content Render */}
       <main className="dashboard-content">
-        {activeSection === "dashboard" && (
+        {isFetching ? (
+          <div className="loader-container" style={{ textAlign: "center", padding: "3rem" }}>
+            <div className="spinner"></div>
+            <p style={{ marginTop: "1rem", color: "#6b7280" }}>
+              Waking up server & fetching your dashboard data...
+            </p>
+          </div>
+        ) : (
           <>
-            {user.role === "ADMIN" && <AdminView />}
-            {user.role === "PM" && <PMView />}
-            {user.role === "DEV" && <DevView />}
+            {activeSection === "dashboard" && (
+              <>
+                {user.role === "ADMIN" && <AdminView />}
+                {user.role === "PM" && <PMView />}
+                {user.role === "DEV" && <DevView />}
+              </>
+            )}
+
+            {activeSection === "tasks" && <Tasks />}
           </>
         )}
-
-        {activeSection === "tasks" && <Tasks />}
       </main>
     </div>
   );

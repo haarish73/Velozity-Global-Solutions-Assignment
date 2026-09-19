@@ -24,9 +24,7 @@ export default function NotificationsDropdown({
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // ==============================
-  // CLOSE ON CLICK OUTSIDE
-  // ==============================
+ 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -40,9 +38,7 @@ export default function NotificationsDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ==============================
-  // MARK ALL AS READ
-  // ==============================
+
   const markAllAsRead = async () => {
     if (unreadCount === 0) return;
 
@@ -59,9 +55,7 @@ export default function NotificationsDropdown({
     }
   };
 
-  // ==============================
-  // MARK SINGLE AS READ
-  // ==============================
+
   const markSingleAsRead = async (id: number, currentReadState: boolean) => {
     if (currentReadState) return;
 
@@ -76,9 +70,6 @@ export default function NotificationsDropdown({
     }
   };
 
-  // ==============================
-  // SOCKET CONNECT & LISTENERS
-  // ==============================
   useEffect(() => {
     connectSocket();
 

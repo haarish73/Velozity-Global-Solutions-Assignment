@@ -1,4 +1,5 @@
-import { createContext, useState, useContext, ReactNode } from "react";
+import { createContext, useState, useContext } from "react";
+import type { ReactNode } from "react";
 
 type User = {
   id: number;
@@ -16,7 +17,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // Synchronously initialize state from localStorage so there is no delay on refresh
+  
   const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem("user");
     return savedUser ? JSON.parse(savedUser) : null;

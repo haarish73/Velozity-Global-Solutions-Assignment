@@ -27,9 +27,9 @@ export default function Tasks() {
   const [priority, setPriority] = useState("MEDIUM");
   const [dueDate, setDueDate] = useState("");
 
-  // =========================
+ 
   // FETCH TASKS
-  // =========================
+ 
   useEffect(() => {
     fetchTasks();
   }, [statusFilter, priorityFilter]);
@@ -49,9 +49,9 @@ export default function Tasks() {
     }
   };
 
-  // =========================
+ 
   // CREATE TASK (ADMIN / PM)
-  // =========================
+ 
   const createTask = async () => {
     try {
       await API.post("/tasks", {
@@ -79,9 +79,9 @@ export default function Tasks() {
     }
   };
 
-  // =========================
+ 
   // UPDATE STATUS
-  // =========================
+ 
   const updateStatus = async (taskId: number, newStatus: string) => {
     try {
       await API.put(`/tasks/${taskId}/status`, {

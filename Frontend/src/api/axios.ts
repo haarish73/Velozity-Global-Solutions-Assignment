@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: "https://velozity-global-solutions-assignment-l91b.onrender.com/api",
   withCredentials: true // for refresh token cookie
 });
 

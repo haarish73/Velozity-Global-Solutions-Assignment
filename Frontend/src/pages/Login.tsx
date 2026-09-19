@@ -16,9 +16,9 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // =========================
+ 
   // HANDLE AUTH
-  // =========================
+ 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     try {

@@ -38,18 +38,18 @@ export default function Dashboard() {
   const [priorityCount, setPriorityCount] = useState<Record<string, number>>({});
   const [overdueCount, setOverdueCount] = useState(0);
 
-  // =========================
+ 
   // AUTH REDIRECT GUARD
-  // =========================
+ 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/", { replace: true });
     }
   }, [user, loading, navigate]);
 
-  // =========================
+ 
   // FETCH DATA
-  // =========================
+ 
   useEffect(() => {
     if (user) {
       fetchData();
@@ -88,9 +88,9 @@ export default function Dashboard() {
     }
   };
 
-  // =========================
+ 
   // LOGOUT HANDLER WITH SWAL
-  // =========================
+ 
   const handleLogout = () => {
     Swal.fire({
       title: "Logout Confirmation",
@@ -116,9 +116,9 @@ export default function Dashboard() {
     });
   };
 
-  // =========================
+ 
   // CALCULATIONS & STATS
-  // =========================
+ 
   const calculateStats = (tasksList: Task[]) => {
     const status: Record<string, number> = {};
     const priority: Record<string, number> = {};
@@ -150,9 +150,9 @@ export default function Dashboard() {
     return "badge badge-default";
   };
 
-  // =========================
+ 
   // ADMIN DASHBOARD VIEW
-  // =========================
+ 
   const AdminView = () => (
     <div className="dashboard-view">
       <header className="dashboard-header">
@@ -192,9 +192,9 @@ export default function Dashboard() {
     </div>
   );
 
-  // =========================
+ 
   // PM DASHBOARD VIEW (FIXED DATES)
-  // =========================
+ 
   const PMView = () => {
     const upcomingTasks = tasks.filter((t) => {
       if (!t.dueDate) return false;
@@ -270,9 +270,9 @@ export default function Dashboard() {
     );
   };
 
-  // =========================
+ 
   // DEV DASHBOARD VIEW
-  // =========================
+ 
   const DevView = () => {
     const sortedTasks = [...tasks].sort((a, b) => {
       const priorityOrder = {
@@ -328,9 +328,9 @@ export default function Dashboard() {
     );
   };
 
-  // =========================
+ 
   // RENDER STATES
-  // =========================
+ 
 
   // 1. Show spinner while verifying user session on reload
   if (loading) {

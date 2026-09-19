@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  PM
+  DEV
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  OVERDUE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+
+  // relations
+  projects  Project[] @relation("ProjectCreator")
+  tasks     Task[]    @relation("AssignedTasks")
+  activities ActivityLog[]
+  notifications Notification[]
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  createdById Int
+  createdAt   DateTime @default(now())
+
+  // relations
+  creator User   @relation("ProjectCreator", fields: [createdById], references: [id])
+  tasks   Task[]
+  
+  @@index([createdById])
+}
+
+model Task {
+  id          Int         @id @default(autoincrement())
+  title       String
+  description String?
+  status      TaskStatus  @default(TODO)
+  priority    Priority    @default(MEDIUM)
+  dueDate     DateTime
+  projectId   Int
+  assignedToId Int
+  createdAt   DateTime    @default(now())
+
+  // relations
+  project     Project @relation(fields: [projectId], references: [id])
+  assignedTo  User    @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  activities  ActivityLog[]
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([projectId])
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  taskId    Int
+  userId    Int
+  oldStatus TaskStatus
+  newStatus TaskStatus
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}

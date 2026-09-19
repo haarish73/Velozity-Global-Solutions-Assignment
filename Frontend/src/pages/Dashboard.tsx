@@ -22,7 +22,7 @@ type Project = {
 };
 
 export default function Dashboard() {
-  const { user, loading, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   // Active section state ("dashboard" or "tasks")

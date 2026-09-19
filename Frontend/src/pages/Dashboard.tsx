@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // 1. Import useNavigate
+import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import { API } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import Tasks from "./Tasks";
+import NotificationsDropdown from "../component/NotificationsDropdown";
+import type { Notification } from "../component/NotificationsDropdown";
 import "../css/Dashboard.css";
 
 type Task = {
@@ -19,8 +22,8 @@ type Project = {
 };
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate(); // 2. Initialize navigate hook
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
 
   // Active section state ("dashboard" or "tasks")
   const [activeSection, setActiveSection] = useState<"dashboard" | "tasks">("dashboard");
@@ -28,57 +31,108 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
 
-  const [statusCount, setStatusCount] = useState<any>({});
-  const [priorityCount, setPriorityCount] = useState<any>({});
+  // Notification State
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const [statusCount, setStatusCount] = useState<Record<string, number>>({});
+  const [priorityCount, setPriorityCount] = useState<Record<string, number>>({});
   const [overdueCount, setOverdueCount] = useState(0);
 
   // =========================
-  // LOGOUT HANDLER WITH REDIRECT
+  // AUTH REDIRECT GUARD
   // =========================
-  const handleLogout = () => {
-    logout();
-    navigate("/", { replace: true }); // Redirects user back to Login route
-  };
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   // =========================
   // FETCH DATA
   // =========================
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   const fetchData = async () => {
     try {
-      const taskRes = await API.get("/tasks");
-      const projectRes = await API.get("/projects");
+      // Fetch tasks, projects, and notifications in parallel
+      const [taskRes, projectRes, notificationRes] = await Promise.allSettled([
+        API.get("/tasks"),
+        API.get("/projects"),
+        API.get("/notifications"),
+      ]);
 
-      const taskData = taskRes.data.data || [];
-      const projectData = projectRes.data.data || [];
+      const taskData =
+        taskRes.status === "fulfilled" ? taskRes.value.data.data || [] : [];
+      const projectData =
+        projectRes.status === "fulfilled" ? projectRes.value.data.data || [] : [];
+      const notificationData =
+        notificationRes.status === "fulfilled"
+          ? notificationRes.value.data.data || notificationRes.value.data || []
+          : [];
 
       setTasks(taskData);
       setProjects(projectData);
+      setNotifications(notificationData);
 
       calculateStats(taskData);
     } catch (err) {
-      console.error(err);
+      Swal.fire({
+        icon: "error",
+        title: "Error Loading Data",
+        text: "Failed to load dashboard data. Please try again later.",
+      });
     }
   };
 
   // =========================
-  // CALCULATIONS
+  // LOGOUT HANDLER WITH SWAL
   // =========================
-  const calculateStats = (tasks: Task[]) => {
-    const status: any = {};
-    const priority: any = {};
+  const handleLogout = () => {
+    Swal.fire({
+      title: "Logout Confirmation",
+      text: "Are you sure you want to log out?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#2563eb",
+      cancelButtonColor: "#ef4444",
+      confirmButtonText: "Yes, Logout",
+      cancelButtonText: "Cancel",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        logout();
+        Swal.fire({
+          icon: "success",
+          title: "Logged Out",
+          text: "You have been successfully logged out.",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        navigate("/", { replace: true });
+      }
+    });
+  };
+
+  // =========================
+  // CALCULATIONS & STATS
+  // =========================
+  const calculateStats = (tasksList: Task[]) => {
+    const status: Record<string, number> = {};
+    const priority: Record<string, number> = {};
     let overdue = 0;
 
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    tasks.forEach((t) => {
+    tasksList.forEach((t) => {
       status[t.status] = (status[t.status] || 0) + 1;
       priority[t.priority] = (priority[t.priority] || 0) + 1;
 
-      if (new Date(t.dueDate) < today && t.status !== "DONE") {
+      const taskDueDate = new Date(t.dueDate);
+      if (taskDueDate < today && t.status !== "DONE") {
         overdue++;
       }
     });
@@ -97,7 +151,7 @@ export default function Dashboard() {
   };
 
   // =========================
-  // ADMIN DASHBOARD
+  // ADMIN DASHBOARD VIEW
   // =========================
   const AdminView = () => (
     <div className="dashboard-view">
@@ -139,14 +193,22 @@ export default function Dashboard() {
   );
 
   // =========================
-  // PM DASHBOARD
+  // PM DASHBOARD VIEW (FIXED DATES)
   // =========================
   const PMView = () => {
     const upcomingTasks = tasks.filter((t) => {
-      const due = new Date(t.dueDate);
-      const now = new Date();
-      const diff = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      return diff >= 0 && diff <= 7;
+      if (!t.dueDate) return false;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 7);
+      nextWeek.setHours(23, 59, 59, 999);
+
+      const taskDueDate = new Date(t.dueDate);
+
+      return taskDueDate >= today && taskDueDate <= nextWeek;
     });
 
     return (
@@ -184,14 +246,23 @@ export default function Dashboard() {
             <p className="empty-msg">No upcoming tasks due in the next 7 days.</p>
           ) : (
             <ul className="upcoming-list">
-              {upcomingTasks.map((t) => (
-                <li key={t.id} className="upcoming-item">
-                  <span className="task-title">{t.title}</span>
-                  <time className="task-date">
-                    📅 {new Date(t.dueDate).toDateString()}
-                  </time>
-                </li>
-              ))}
+              {upcomingTasks.map((t) => {
+                const formattedDate = new Date(t.dueDate).toLocaleDateString(
+                  undefined,
+                  {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  }
+                );
+
+                return (
+                  <li key={t.id} className="upcoming-item">
+                    <span className="task-title">{t.title}</span>
+                    <time className="task-date">📅 {formattedDate}</time>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
@@ -200,7 +271,7 @@ export default function Dashboard() {
   };
 
   // =========================
-  // DEV DASHBOARD
+  // DEV DASHBOARD VIEW
   // =========================
   const DevView = () => {
     const sortedTasks = [...tasks].sort((a, b) => {
@@ -212,8 +283,8 @@ export default function Dashboard() {
       };
 
       const pDiff =
-        priorityOrder[b.priority as keyof typeof priorityOrder] -
-        priorityOrder[a.priority as keyof typeof priorityOrder];
+        (priorityOrder[b.priority as keyof typeof priorityOrder] || 0) -
+        (priorityOrder[a.priority as keyof typeof priorityOrder] || 0);
 
       if (pDiff !== 0) return pDiff;
 
@@ -236,7 +307,12 @@ export default function Dashboard() {
                   <div className="task-info">
                     <h4 className="task-title">{t.title}</h4>
                     <span className="task-date-sub">
-                      Due: {new Date(t.dueDate).toLocaleDateString()}
+                      Due:{" "}
+                      {new Date(t.dueDate).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </span>
                   </div>
                   <div className="task-tags">
@@ -253,9 +329,11 @@ export default function Dashboard() {
   };
 
   // =========================
-  // RENDER BASED ON ROLE
+  // RENDER STATES
   // =========================
-  if (!user) {
+
+  // 1. Show spinner while verifying user session on reload
+  if (loading) {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
@@ -264,6 +342,12 @@ export default function Dashboard() {
     );
   }
 
+  // 2. Prevent rendering before redirection occurs
+  if (!user) {
+    return null;
+  }
+
+  // 3. Render Dashboard once authenticated
   return (
     <div className="dashboard-wrapper">
       {/* Top Navbar */}
@@ -295,8 +379,12 @@ export default function Dashboard() {
         </div>
 
         <div className="navbar-actions">
+          {/* Notifications Dropdown */}
+          <NotificationsDropdown
+            notifications={notifications}
+            setNotifications={setNotifications}
+          />
           <span className="user-role-badge">{user.role}</span>
-          {/* Attached updated logout handler */}
           <button className="logout-btn" onClick={handleLogout}>
             Logout
           </button>

@@ -36,6 +36,8 @@ export default function NotificationDropdown() {
   const fetchNotifications = async () => {
     try {
       const res = await API.get("/notifications");
+      console.log("TOKEN:", localStorage.getItem("token"));
+      console.log("API RESPONSE:", res.data);
       setNotifications(res.data.data || []);
     } catch (err) {
       console.error("Error fetching notifications", err);
@@ -86,7 +88,15 @@ export default function NotificationDropdown() {
   return (
     <div className="notification-container" ref={dropdownRef}>
       {/* Trigger Button */}
-      <button className="notification-trigger-btn" onClick={() => setOpen(!open)}>
+      <button
+  className="notification-trigger-btn"
+  onClick={() => {
+    setOpen((prev) => {
+      if (!prev) fetchNotifications(); // 🔥 fetch when opening
+      return !prev;
+    });
+  }}
+>
         <span className="bell-icon">🔔</span>
         {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
       </button>

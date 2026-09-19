@@ -36,13 +36,24 @@ export const createTask = async (data: any, user: any) => {
     },
   });
 
-  // ✅ CREATE NOTIFICATION FOR DEV
+  console.log("Task created");
+
+  // 🔥 ADD THIS BLOCK
   await prisma.notification.create({
     data: {
-      userId: data.assignedToId,
-      message: `You have been assigned task: ${data.title}`,
+      userId: data.assignedToId, // DEV user
+      message: `New task assigned: ${task.title}`,
     },
   });
+
+  console.log("Notifications created")
+
+  const notif = await prisma.notification.create({
+  data: {
+    userId: data.assignedToId,
+    message: `New task assigned: ${task.title}`,
+  },
+});
 
   return task;
 };

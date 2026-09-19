@@ -1,8 +1,10 @@
 import { useState } from "react";
+import Swal from "sweetalert2";
 import API from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import "../css/Login.css";
+
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
 
@@ -27,7 +29,16 @@ export default function Login() {
         res = await API.post("/auth/login", { email, password });
 
         login(res.data);
-        navigate("/dashboard");
+
+        Swal.fire({
+          icon: "success",
+          title: "Welcome Back!",
+          text: "Login successful. Redirecting to your dashboard...",
+          timer: 1500,
+          showConfirmButton: false,
+        }).then(() => {
+          navigate("/dashboard");
+        });
       } else {
         // 🆕 REGISTER
         res = await API.post("/auth/register", {
@@ -37,12 +48,23 @@ export default function Login() {
           role, // ✅ send selected role
         });
 
-        alert("Registered successfully. Now login.");
+        Swal.fire({
+          icon: "success",
+          title: "Account Created!",
+          text: "Registration successful. Please log in with your credentials.",
+          confirmButtonColor: "#2563eb",
+        });
+
         setIsLogin(true);
       }
     } catch (err: any) {
       console.error(err);
-      alert(err?.response?.data?.message || "Something went wrong");
+      Swal.fire({
+        icon: "error",
+        title: isLogin ? "Login Failed" : "Registration Failed",
+        text: err?.response?.data?.message || "Something went wrong. Please try again.",
+        confirmButtonColor: "#2563eb",
+      });
     }
   };
 

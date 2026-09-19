@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { API, socket, connectSocket, disconnectSocket } from "../api/client";
+import "../css/NotificationsDropdown.css";
 
 export interface Notification {
   id: number;
@@ -9,99 +10,145 @@ export interface Notification {
   createdAt: string;
 }
 
-function NotificationsDropdown({
-  notifications,
-  setNotifications,
-}: {
+interface NotificationsDropdownProps {
   notifications: Notification[];
   setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>;
-}) {
+}
+
+export default function NotificationsDropdown({
+  notifications,
+  setNotifications,
+}: NotificationsDropdownProps) {
   const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   // ==============================
-  // MARK ALL AS READ (FIXED)
+  // CLOSE ON CLICK OUTSIDE
+  // ==============================
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ==============================
+  // MARK ALL AS READ
   // ==============================
   const markAllAsRead = async () => {
+    if (unreadCount === 0) return;
+
+    // Optimistic Update
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, isRead: true }))
+    );
+
     try {
-      await API.put("/notifications/read-all"); // ✅ correct endpoint
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, isRead: true }))
-      );
+      await API.put("/notifications/read-all");
     } catch (err) {
       console.error("Failed to mark notifications read", err);
+      // Revert if API fails (optional fetch refetch)
     }
   };
 
   // ==============================
-  // SOCKET CONNECT
+  // MARK SINGLE AS READ
+  // ==============================
+  const markSingleAsRead = async (id: number, currentReadState: boolean) => {
+    if (currentReadState) return;
+
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+
+    try {
+      await API.put(`/notifications/${id}/read`);
+    } catch (err) {
+      console.error(`Failed to mark notification ${id} as read`, err);
+    }
+  };
+
+  // ==============================
+  // SOCKET CONNECT & LISTENERS
   // ==============================
   useEffect(() => {
     connectSocket();
 
-    return () => {
-      disconnectSocket();
-    };
-  }, []);
-
-  // ==============================
-  // REAL-TIME LISTENER
-  // ==============================
-  useEffect(() => {
     socket.on("notification", (data: Notification) => {
       setNotifications((prev) => [data, ...prev]);
     });
 
     return () => {
       socket.off("notification");
+      disconnectSocket();
     };
   }, [setNotifications]);
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className="notifications-container" ref={dropdownRef}>
       {/* 🔔 Button */}
-      <button onClick={() => setOpen(!open)}>
-        🔔 ({unreadCount})
+      <button
+        className={`notifications-toggle ${unreadCount > 0 ? "has-unread" : ""}`}
+        onClick={() => setOpen((prev) => !prev)}
+        aria-label="Notifications"
+      >
+        <span className="bell-icon">🔔</span>
+        {unreadCount > 0 && (
+          <span className="unread-badge">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown Menu */}
       {open && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "40px",
-            width: "300px",
-            background: "#fff",
-            border: "1px solid #ddd",
-            padding: "10px",
-            zIndex: 10,
-          }}
-        >
-          <button onClick={markAllAsRead}>Mark all as read</button>
+        <div className="notifications-dropdown">
+          <div className="notifications-header">
+            <h4>Notifications</h4>
+            {unreadCount > 0 && (
+              <button className="mark-all-btn" onClick={markAllAsRead}>
+                Mark all as read
+              </button>
+            )}
+          </div>
 
-          {notifications.length === 0 ? (
-            <p>No notifications</p>
-          ) : (
-            notifications.map((n) => (
-              <div
-                key={n.id}
-                style={{
-                  padding: "8px",
-                  background: n.isRead ? "#f9f9f9" : "#e6f7ff",
-                  marginTop: "5px",
-                  borderRadius: "4px",
-                }}
-              >
-                {n.message}
+          <div className="notifications-list">
+            {notifications.length === 0 ? (
+              <div className="empty-notifications">
+                <span>🔕</span>
+                <p>No notifications yet</p>
               </div>
-            ))
-          )}
+            ) : (
+              notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className={`notification-item ${n.isRead ? "read" : "unread"}`}
+                  onClick={() => markSingleAsRead(n.id, n.isRead)}
+                >
+                  <div className="notification-content">
+                    <p className="notification-message">{n.message}</p>
+                    <span className="notification-time">
+                      {new Date(n.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  {!n.isRead && <span className="unread-dot"></span>}
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
-
-export default NotificationsDropdown;

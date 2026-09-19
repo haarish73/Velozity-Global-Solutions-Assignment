@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getActivityFeed } from "../controllers/activity.controller";
+import { getNotifications } from "../controllers/notification.controller";
 import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
 
-router.get("/", authenticate, getActivityFeed);
+router.get("/", authenticate, getNotifications);
 
 export default router;
